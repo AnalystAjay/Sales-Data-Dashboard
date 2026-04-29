@@ -10,28 +10,32 @@ import numpy as np
 st.set_page_config(page_title="Retail Dashboard", layout="wide")
 
 st.title("📊 Retail Sales Dashboard (SQL + RFM + ML)")
+import streamlit as st
+import pandas as pd
+from sqlalchemy import create_engine
 
-# 🔹 MySQL Connection (optional)
-def get_connection():
-    return mysql.connector.connect(
-        host="localhost",   # change if using cloud DB
-        user="root",
-        password="your_password",
-        database="retail_db"
-    )
+# 🔑 Replace with your Supabase credentials
+DB_USER = "postgres"
+DB_PASSWORD = "PXfxJaKB7anyqNWV"
+DB_HOST = "db.vrbtjfnatgcfgchhzxzu.supabase.co"
+DB_PORT = "5432"
+DB_NAME = "postgres"
 
-# 🔹 Load Data (SAFE VERSION)
-@st.cache_data
-def load_data():
-    # Try SQL
-    try:
-        conn = get_connection()
-        df = pd.read_sql("SELECT * FROM sales_data", conn)
-        conn.close()
-        st.success("✅ Data loaded from SQL")
-        return df
-    except:
-        st.warning("⚠️ SQL not connected, using CSV...")
+# 🔗 Connection URL
+DATABASE_URL = f"postgresql://{postgres}:{PXfxJaKB7anyqNWV}@{db.vrbtjfnatgcfgchhzxzu.supabase.co}:{5432}/{postgres}"
+
+# ⚡ Create engine
+engine = create_engine(DATABASE_URL)
+
+# 📊 Fetch data
+query = "SELECT * FROM public.sales_data;"
+df = pd.read_sql(query, engine)
+
+# 🖥️ Streamlit UI
+st.title("📊 Sales Dashboard")
+st.write(df.head())
+
+
 
     # Try CSV (ROOT FOLDER)
     if os.path.exists("data.csv"):
