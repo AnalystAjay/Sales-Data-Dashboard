@@ -2,37 +2,57 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import mysql.connector
+import os
+
+from sklearn.linear_model import LinearRegression
+import numpy as np
 
 st.set_page_config(page_title="Retail Dashboard", layout="wide")
 
-st.title("📊 Retail Sales Dashboard (SQL + RFM Analysis)")
+st.title("📊 Retail Sales Dashboard (SQL + RFM + ML)")
 
-# 🔹 MySQL Connection
+# 🔹 MySQL Connection (optional)
 def get_connection():
     return mysql.connector.connect(
-        host="localhost",
+        host="localhost",   # change if using cloud DB
         user="root",
-        password="Sumo$%23",
+        password="your_password",
         database="retail_db"
     )
 
-# 🔹 Load Data
+# 🔹 Load Data (SAFE VERSION)
 @st.cache_data
 def load_data():
+    # Try SQL
     try:
         conn = get_connection()
         df = pd.read_sql("SELECT * FROM sales_data", conn)
         conn.close()
+        st.success("✅ Data loaded from SQL")
+        return df
     except:
-        df = pd.read_csv("data/data.csv")  # fallback
+        st.warning("⚠️ SQL not connected, using CSV...")
 
-    df.columns = df.columns.str.lower().str.replace(' ', '_')
-    df["orderdate"] = pd.to_datetime(df["orderdate"])
-    df["month"] = df["orderdate"].dt.strftime("%b")
+    # Try CSV (ROOT FOLDER)
+    if os.path.exists("data.csv"):
+        df = pd.read_csv("data.csv")
+        st.success("✅ Data loaded from CSV")
+        return df
 
-    return df
+    # Final fallback
+    st.error("❌ data.csv file not found!")
+    return pd.DataFrame()
 
 df = load_data()
+
+# Stop if no data
+if df.empty:
+    st.stop()
+
+# 🔹 Preprocessing
+df.columns = df.columns.str.lower().str.replace(' ', '_')
+df["orderdate"] = pd.to_datetime(df["orderdate"])
+df["month"] = df["orderdate"].dt.strftime("%b")
 
 # 🔹 Sidebar Filters
 st.sidebar.header("🔍 Filters")
@@ -125,3 +145,32 @@ fig6 = px.scatter(
 )
 
 st.plotly_chart(fig6, use_container_width=True)
+
+# 🔥 🔹 ML Prediction
+st.subheader("📈 Sales Prediction (ML)")
+
+df_ml = df.sort_values("orderdate").copy()
+df_ml["date_ordinal"] = df_ml["orderdate"].map(pd.Timestamp.toordinal)
+
+X = df_ml[["date_ordinal"]]
+y = df_ml["sales"]
+
+model = LinearRegression()
+model.fit(X, y)
+
+future_days = st.slider("Select Days to Predict", 5, 30, 10)
+
+last_date = df_ml["orderdate"].max()
+future_dates = pd.date_range(last_date, periods=future_days)
+
+future_ordinal = future_dates.map(pd.Timestamp.toordinal).values.reshape(-1,1)
+predictions = model.predict(future_ordinal)
+
+pred_df = pd.DataFrame({
+    "date": future_dates,
+    "predicted_sales": predictions
+})
+
+fig_pred = px.line(pred_df, x="date", y="predicted_sales", title="Future Sales Prediction")
+
+st.plotly_chart(fig_pred, use_container_width=True)
